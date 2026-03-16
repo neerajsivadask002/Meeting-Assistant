@@ -1,7 +1,5 @@
 import streamlit as st
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+import google.generativeai as genai
 from pydantic import BaseModel, Field
 from typing import List
 import json
@@ -48,9 +46,10 @@ def get_demo_data():
 def clean_json_response(text):
     """Removes markdown code blocks from the response."""
     text = text.strip()
+    # Remove markdown code blocks if present
     if text.startswith("```json"):
         text = text[7:]
-    if text.startswith("```"):
+    elif text.startswith("```"):
         text = text[3:]
     if text.endswith("```"):
         text = text[:-3]
@@ -58,18 +57,35 @@ def clean_json_response(text):
 
 def process_meeting_notes(notes, key):
     try:
-        # Switched to gemini-1.5-pro for better stability across API versions
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0, google_api_key=key)
+        # Configure the native SDK
+        genai.configure(api_key=key)
         
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are an expert meeting assistant. Analyze the provided notes and extract structured information. Output ONLY valid JSON. Do not include markdown formatting like ```json."),
-            ("human", "Meeting Notes:\n{notes}"),
-        ])
+        # Use gemini-1.5-flash (Free Tier) instead of Pro
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
-        chain = prompt | llm | StrOutputParser()
-        response = chain.invoke({"notes": notes})
+        # Prompt engineering for structured JSON
+        prompt = f"""
+        You are an expert meeting assistant. Analyze the following meeting notes and extract structured information.
+        Output ONLY valid JSON. Do not include markdown formatting like ```json.
         
-        clean_response = clean_json_response(response)
+        Meeting Notes:
+        {notes}
+        
+        Required JSON Structure:
+        {{
+            "summary": "string",
+            "key_decisions": ["string", "string"],
+            "action_items": [
+                {{"task": "string", "owner": "string", "deadline": "string"}}
+            ]
+        }}
+        """
+        
+        # Generate Content
+        response = model.generate_content(prompt)
+        
+        # Clean and Parse JSON
+        clean_response = clean_json_response(response.text)
         data = json.loads(clean_response)
         return data
     except Exception as e:
@@ -87,7 +103,7 @@ if st.button("Generate Summary"):
             result = None
             if not api_key:
                 # DEMO MODE
-                st.info("🚀 **Demo Mode:** No API key detected. Showing sample output structure.")
+                st.info("**Demo Mode:** No API key detected. Showing sample output structure.")
                 result = get_demo_data()
             else:
                 # LIVE AI MODE
