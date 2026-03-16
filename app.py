@@ -1,9 +1,10 @@
 import streamlit as st
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from pydantic import BaseModel, Field
 from typing import List
+import json
 
 # --- Page Configuration ---
 st.set_page_config(page_title="AI Meeting Assistant", page_icon="📝")
@@ -32,22 +33,29 @@ class MeetingSummary(BaseModel):
 
 # --- Functions ---
 def process_meeting_notes(notes, key):
-    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, openai_api_key=key)
-    
-    parser = PydanticOutputParser(pydantic_object=MeetingSummary)
-    
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are an expert meeting assistant. Analyze the provided notes and extract structured information."),
-        ("human", "Meeting Notes:\n{notes}\n\nFormat the output strictly as JSON according to the following schema:\n{format_instructions}"),
-    ])
-    
-    chain = prompt | llm | parser
-    
     try:
-        response = chain.invoke({"notes": notes, "format_instructions": parser.get_format_instructions()})
-        return response
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, openai_api_key=key)
+        
+        # Create the prompt template
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are an expert meeting assistant. Analyze the provided notes and extract structured information. Output ONLY valid JSON."),
+            ("human", "Meeting Notes:\n{notes}"),
+        ])
+        
+        # Create the chain
+        chain = prompt | llm | StrOutputParser()
+        
+        # Invoke the chain
+        response = chain.invoke({"notes": notes})
+        
+        # Clean the response (remove markdown code blocks if present)
+        response = response.replace("```json", "").replace("```", "").strip()
+        
+        # Parse JSON
+        data = json.loads(response)
+        return data
     except Exception as e:
-        st.error(f"Processing error: {e}")
+        st.error(f"Processing error: {str(e)}")
         return None
 
 # --- Main Interface ---
@@ -67,24 +75,24 @@ if st.button("Generate Summary"):
                 
                 # Display Summary
                 st.subheader("Summary")
-                st.write(result.summary)
+                st.write(result.get("summary", "No summary available"))
                 
                 # Display Decisions
                 st.subheader("Key Decisions")
-                for decision in result.key_decisions:
+                for decision in result.get("key_decisions", []):
                     st.write(f"- {decision}")
                 
                 # Display Action Items
                 st.subheader("Action Items")
-                for item in result.action_items:
-                    with st.expander(f"Task: {item.task}"):
-                        st.write(f"**Owner:** {item.owner}")
-                        st.write(f"**Deadline:** {item.deadline}")
+                for item in result.get("action_items", []):
+                    with st.expander(f"Task: {item.get('task', 'Unknown Task')}"):
+                        st.write(f"**Owner:** {item.get('owner', 'Unassigned')}")
+                        st.write(f"**Deadline:** {item.get('deadline', 'Not specified')}")
                 
                 # Download Option
                 st.download_button(
                     label="Download Report as JSON",
-                    data=result.json(),
+                    data=json.dumps(result, indent=2),
                     file_name="meeting_report.json",
                     mime="application/json"
                 )
