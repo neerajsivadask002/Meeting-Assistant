@@ -46,7 +46,6 @@ def get_demo_data():
 def clean_json_response(text):
     """Removes markdown code blocks from the response."""
     text = text.strip()
-    # Remove markdown code blocks if present
     if text.startswith("```json"):
         text = text[7:]
     elif text.startswith("```"):
@@ -60,8 +59,8 @@ def process_meeting_notes(notes, key):
         # Configure the native SDK
         genai.configure(api_key=key)
         
-        # Use gemini-1.5-flash (Free Tier) instead of Pro
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Use explicit model path for stability
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         
         # Prompt engineering for structured JSON
         prompt = f"""
