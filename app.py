@@ -58,13 +58,17 @@ def clean_json_response(text):
 
 def process_meeting_notes(notes, key):
     try:
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0, google_api_key=key)
+        # Switched to gemini-1.5-pro for better stability across API versions
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0, google_api_key=key)
+        
         prompt = ChatPromptTemplate.from_messages([
             ("system", "You are an expert meeting assistant. Analyze the provided notes and extract structured information. Output ONLY valid JSON. Do not include markdown formatting like ```json."),
             ("human", "Meeting Notes:\n{notes}"),
         ])
+        
         chain = prompt | llm | StrOutputParser()
         response = chain.invoke({"notes": notes})
+        
         clean_response = clean_json_response(response)
         data = json.loads(clean_response)
         return data
@@ -83,7 +87,7 @@ if st.button("Generate Summary"):
             result = None
             if not api_key:
                 # DEMO MODE
-                st.info("**Demo Mode:** No API key detected. Showing sample output structure.")
+                st.info("🚀 **Demo Mode:** No API key detected. Showing sample output structure.")
                 result = get_demo_data()
             else:
                 # LIVE AI MODE
