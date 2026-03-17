@@ -1,9 +1,5 @@
 # Meeting-Assistant
-To make your GitHub repository look professional, it’s best to use a combination of standard Markdown and "Copy-to-Clipboard" code blocks. 
-
-Here is the exact code for your **README.md**. You can copy the entire block below and paste it directly into your file.
-
-```markdown
+```
 # 📝 AI Meeting Assistant
 
 Transform raw meeting notes into structured summaries and actionable tasks using Google's latest Gemini models.
