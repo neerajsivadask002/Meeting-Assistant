@@ -34,28 +34,44 @@ class MeetingSummary(BaseModel):
 # --- Functions ---
 def process_meeting_notes(notes, key):
     try:
-        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, openai_api_key=key)
+        # Configure the native SDK
+        genai.configure(api_key=key)
         
-        # Create the prompt template
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are an expert meeting assistant. Analyze the provided notes and extract structured information. Output ONLY valid JSON."),
-            ("human", "Meeting Notes:\n{notes}"),
-        ])
+        # Force JSON output using generation_config
+        model = genai.GenerativeModel(
+            'gemini-1.5-flash',
+            generation_config={"response_mime_type": "application/json"}
+        )
         
-        # Create the chain
-        chain = prompt | llm | StrOutputParser()
+        # Prompt engineering for structured JSON
+        prompt = f"""
+        You are an expert meeting assistant. Analyze the following meeting notes and extract structured information.
         
-        # Invoke the chain
-        response = chain.invoke({"notes": notes})
+        Meeting Notes:
+        {notes}
         
-        # Clean the response (remove markdown code blocks if present)
-        response = response.replace("```json", "").replace("```", "").strip()
+        Required JSON Structure:
+        {{
+            "summary": "string",
+            "key_decisions": ["string", "string"],
+            "action_items": [
+                {{"task": "string", "owner": "string", "deadline": "string"}}
+            ]
+        }}
+        """
         
-        # Parse JSON
-        data = json.loads(response)
+        # Generate Content
+        response = model.generate_content(prompt)
+        
+        # Because we used response_mime_type, the output is guaranteed to be a valid JSON string.
+        # No manual cleaning needed!
+        data = json.loads(response.text)
         return data
+
     except Exception as e:
+        # Improved error logging to help you debug in Streamlit
         st.error(f"Processing error: {str(e)}")
+        st.info("Check if your API key is valid and has sufficient quota.")
         return None
 
 # --- Main Interface ---
