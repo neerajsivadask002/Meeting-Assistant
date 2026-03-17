@@ -60,7 +60,7 @@ def process_meeting_notes(notes, key):
         
         # Use a current model (2.0-flash) and force JSON output
         model = genai.GenerativeModel(
-            'gemini-2.0-flash',
+            'gemini-3.1-flash-lite-preview',
             generation_config={"response_mime_type": "application/json"}
         )
         
