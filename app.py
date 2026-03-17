@@ -56,46 +56,32 @@ def clean_json_response(text):
 
 def process_meeting_notes(notes, key):
     try:
-        # Configure the native SDK
         genai.configure(api_key=key)
         
-        # Force JSON output using generation_config
+        # Use a current model (2.0-flash) and force JSON output
         model = genai.GenerativeModel(
-            'gemini-1.5-flash',
+            'gemini-2.0-flash',
             generation_config={"response_mime_type": "application/json"}
         )
         
-        # Prompt engineering for structured JSON
         prompt = f"""
-        You are an expert meeting assistant. Analyze the following meeting notes and extract structured information.
-        
-        Meeting Notes:
-        {notes}
-        
-        Required JSON Structure:
+        Extract meeting notes into this JSON structure:
         {{
             "summary": "string",
-            "key_decisions": ["string", "string"],
-            "action_items": [
-                {{"task": "string", "owner": "string", "deadline": "string"}}
-            ]
+            "key_decisions": ["string"],
+            "action_items": [{{"task": "string", "owner": "string", "deadline": "string"}}]
         }}
+        Notes: {notes}
         """
         
-        # Generate Content
         response = model.generate_content(prompt)
         
-        # Because we used response_mime_type, the output is guaranteed to be a valid JSON string.
-        # No manual cleaning needed!
-        data = json.loads(response.text)
-        return data
-
+        # In JSON mode, response.text is guaranteed to be parseable
+        return json.loads(response.text)
+        
     except Exception as e:
-        # Improved error logging to help you debug in Streamlit
-        st.error(f"Processing error: {str(e)}")
-        st.info("Check if your API key is valid and has sufficient quota.")
+        st.error(f"Error: {str(e)}")
         return None
-
 # --- Main Interface ---
 text_input = st.text_area("Paste Meeting Notes Here", height=200, placeholder="e.g., John agreed to update the API by Friday...")
 
